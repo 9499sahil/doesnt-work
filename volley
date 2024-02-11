@@ -1,0 +1,78 @@
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from webdriver_manager.chrome import ChromeDriverManager
+import yaml
+from datetime import datetime, timedelta
+
+# Function to parse the date and time string and convert it to a datetime object
+def parse_datetime(datetime_str):
+    return datetime.strptime(datetime_str, '%Y-%m-%d %H:%M')
+
+
+# Function to check if registration is open for a session
+def is_registration_open(session_datetime):
+    # Calculate the time difference between the session start time and the current time
+    time_difference = session_datetime - datetime.now()
+
+    # Check if the time difference is less than or equal to 72 hours (259200 seconds)
+    return time_difference.total_seconds() <= 259200
+
+
+# Load username and password from YAML file
+with open("info1.yml", "r") as f:
+    config = yaml.safe_load(f)
+username = config['username']
+password = config['password']
+
+# URL of the login page
+url = "https://accounts.surrey.ca/auth.aspx?loginflow=prcms&url=https%3A%2F%2Fcityofsurrey.perfectmind.com%2F23615%2FClients%2FBookMe4%3FwidgetId%3Db4059e75-9755-401f-a7b5-d7c75361420d"
+
+# Initialize Chrome WebDriver
+options = Options()
+options.add_experimental_option("detach", True)
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+
+# Add an implicit wait to wait for elements to be found
+driver.implicitly_wait(10)
+
+# Open the login page
+driver.get(url)
+
+# Log in with username and password
+driver.find_element(By.ID, "loginradius-login-emailid").send_keys(username)
+driver.find_element(By.ID, "loginradius-login-password").send_keys(password)
+driver.find_element(By.ID, "loginradius-validate-login").click()
+
+# Wait for the "Drop In Sports" link to be clickable and click it
+element = WebDriverWait(driver, 10).until(
+    EC.element_to_be_clickable((By.LINK_TEXT, 'Drop In Sports'))
+)
+driver.execute_script("arguments[0].click();", element)
+
+# Define the list of centers and the activity
+centrist = ["Clayton Community Centre - CCC - Gym", "Cloverdale Recreation Centre - CRC - Gym 1 & 2",
+            "Fraser Heights Recreation Centre - FH - Gym 1", "Guildford Recreation Centre - GRC - Gym 1/2"]
+activity = "Drop In Volleyball - Adult"
+
+# Define the session details
+sessions = [
+    {"day": "Tuesday", "location": "Fraser Heights Recreation Centre - FH - Gym 1", "time": "17:30"},
+    {"day": "Wednesday", "location": "Guildford Recreation Centre - GRC - Gym 1/2", "time": "19:00"},
+    {"day": "Thursday", "location": "Fraser Heights Recreation Centre - FH - Gym 1", "time": "17:30"},
+    {"day": "Thursday", "location": "Cloverdale Recreation Centre - CRC - Gym 1 & 2", "time": "20:15"},
+    {"day": "Friday", "location": "Clayton Community Centre - CCC - Gym", "time": "19:15"},
+    {"day": "Sunday", "location": "Guildford Recreation Centre - GRC - Gym 1/2", "time": "18:00"},
+]
+
+# Check if registration is open for any session at the specified centers and activity
+for session in sessions:
+    if session["location"] in centrist and activity in session.values():
+        session_datetime = parse_datetime(f"{session['day']} {session['time']}")
+        if is_registration_open(session_datetime):
+            print(f"Registration is open for {activity} at {session['location']} on {session['day']} at {session['time']}")
+        else:
+            print(f"Registration is not open for {activity} at {session['location']} on {session['day']} at {session['time']}")
